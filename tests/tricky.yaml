@@ -1,0 +1,5 @@
+# comment at top
+"foo/bar": 1             # key needing JSON Pointer escaping
+nested:
+  "~tilde": true         # key needing ~ escaping
+  normal: plain string

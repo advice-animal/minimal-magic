@@ -1,0 +1,8 @@
+# comment at top
+
+"quoted key" = 42        # quoted key with spaces — silently dropped
+dotted.key   = true      # dotted bare key
+
+[server]                 # inline comment on table header
+host = "localhost"
+path = "/etc/ssl/key.pem"   # value contains substring matching another key name

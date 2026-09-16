@@ -7,26 +7,37 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "minimal-magic"
-description = "tim@timhatch.com"
+description = "msgspec-style typed conversion for plain dataclasses and TypedDicts, in pure Python"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
-  { name = "Tim Hatch", email = "https://github.com/advice-animal/minimal-magic" },
+  { name = "Tim Hatch", email = "tim@timhatch.com" },
 ]
+keywords = ["config", "dataclass", "typeddict", "validation", "toml", "yaml", "json"]
 classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dynamic = ["version"]
-dependencies = []
+dependencies = [
+  "parse-errors >= 0.5.0, < 1.0",
+  "tomli >= 2.0; python_version < '3.11'",
+  "tree-sitter < 0.26",
+]
 
 [project.urls]
 Homepage = "https://github.com/advice-animal/minimal-magic"
+Repository = "https://github.com/advice-animal/minimal-magic"
+Issues = "https://github.com/advice-animal/minimal-magic/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -37,11 +48,21 @@ dev = [
 ]
 test = [
   "coverage >= 7.14",
+  "hypothesis",
   "pytest >= 8",
+  "pytest-benchmark",
+  "PyYAML",
+]
+yaml = [
+  "PyYAML",
+]
+bench = [
+  "msgspec",
+  "pydantic",
 ]
 
 [project.scripts]
-# foo = "foo:bar"
+minimal-magic = "minimal_magic.__main__:main"
 
 [tool.setuptools]
 packages = { find = {} }
@@ -65,7 +86,7 @@ show_missing = true
 skip_covered = true
 
 [tool.pytest.ini_options]
-addopts = "-ra"
+addopts = "-ra --benchmark-quiet --benchmark-name=short"
 testpaths = ["tests"]
 
 [tool.mypy]
