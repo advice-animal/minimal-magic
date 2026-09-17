@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import typing
 from pathlib import Path
 
@@ -10,14 +9,12 @@ try:
 except ImportError:  # pragma: no cover
     import tomli as tomllib  # type: ignore[no-redef]
 
-from parse_errors import ParseError
-
-_TOML_LOC = re.compile(r"\(at line (\d+), column (\d+)\)")
+from parse_errors import ParseContext, ParseError
 
 
 def _parse_syntax(data: bytes, fmt: str, path: Path) -> typing.Any:
     if fmt == "json":
-        try:
+        with ParseContext(path, data=data, format="json"):
             # To reject duplicate object keys instead of keeping the last value:
             #
             # def reject_duplicates(pairs):
@@ -30,13 +27,6 @@ def _parse_syntax(data: bytes, fmt: str, path: Path) -> typing.Any:
             #
             # return json.loads(data, object_pairs_hook=reject_duplicates)
             return json.loads(data)
-        except json.JSONDecodeError as exc:
-            raise ParseError(
-                f"{path}:{exc.lineno}:{exc.colno}: {exc.msg}",
-                filename=path,
-                line=exc.lineno,
-                column=exc.colno,
-            ) from exc
     elif fmt in ("yaml", "yml"):
         try:
             import yaml
@@ -44,44 +34,19 @@ def _parse_syntax(data: bytes, fmt: str, path: Path) -> typing.Any:
             raise ImportError(
                 "PyYAML is required to parse YAML files; install with `pip install minimal-magic[yaml]`"
             ) from exc
-        try:
+        with ParseContext(path, data=data, format="yaml"):
             # CSafeLoader (libyaml, C) when available; yaml.safe_load() always
             # uses the pure-Python SafeLoader, even when libyaml is installed.
             loader_cls = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
             raw = yaml.load(data.decode("utf-8"), Loader=loader_cls)
-            _reject_circular_references(raw, path)
-            return raw
-        except yaml.YAMLError as exc:
-            mark = getattr(exc, "problem_mark", None)
-            if mark is not None:
-                line, col = mark.line + 1, mark.column + 1
-                msg = getattr(exc, "problem", None) or str(exc)
-                raise ParseError(
-                    f"{path}:{line}:{col}: {msg}",
-                    filename=path,
-                    line=line,
-                    column=col,
-                ) from exc
-            raise  # pragma: no cover
+        # Outside ParseContext: this already raises its own located
+        # ParseError, which ParseContext has no way to tell apart from an
+        # ordinary exception and would otherwise try to re-locate.
+        _reject_circular_references(raw, path)
+        return raw
     elif fmt == "toml":
-        try:
+        with ParseContext(path, data=data, format="toml"):
             return tomllib.loads(data.decode("utf-8"))
-        except tomllib.TOMLDecodeError as exc:
-            m = _TOML_LOC.search(str(exc))
-            if m:
-                line, col = int(m.group(1)), int(m.group(2))
-                raise ParseError(
-                    f"{path}:{line}:{col}: {exc}",
-                    filename=path,
-                    line=line,
-                    column=col,
-                ) from exc
-            raise ParseError(
-                f"{path}: {exc}",
-                filename=path,
-                line=0,
-                column=0,
-            ) from exc
     else:
         raise ValueError(f"Unknown format: {fmt!r}")
 

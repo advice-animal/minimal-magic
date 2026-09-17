@@ -4,7 +4,7 @@ import typing
 
 import pytest
 
-from minimal_magic import convert, load, load_candidate, ParseError
+from minimal_magic import _parsing, convert, load, load_candidate, ParseError
 
 from ._types import DcConfig
 
@@ -16,14 +16,98 @@ def test_load_unknown_extension(tmp_path):
         load(f)
 
 
-def test_load_toml_syntax_error_no_location(tmp_path):
+# One syntax-error test per format, each failing on a line after the first,
+# so a location bug (off-by-one, or reporting line 1 unconditionally) can't
+# hide behind a single-line fixture.
+
+
+def test_load_json_syntax_error_location(tmp_path):
+    f = tmp_path / "config.json"
+    f.write_bytes(b'{\n  "host": "x"\n  "port": 1\n}\n')
+    with pytest.raises(ParseError) as exc_info:
+        load(f)
+    err = exc_info.value
+    assert err.line == 3
+    assert err.column == 3
+    assert str(err) == f"{f}:3:3: Expecting ',' delimiter"
+
+
+def test_load_yaml_syntax_error_location(tmp_path):
+    f = tmp_path / "config.yaml"
+    f.write_bytes(b"host: x\n  port: 1\n")
+    with pytest.raises(ParseError) as exc_info:
+        load(f)
+    err = exc_info.value
+    assert err.line == 2
+    assert err.column == 7
+    assert "mapping values are not allowed" in str(err)
+    assert str(err).startswith(f"{f}:2:7: ")
+
+
+def test_load_toml_syntax_error_location(tmp_path):
+    # The message text isn't asserted verbatim: tomllib sets .msg (a clean,
+    # non-redundant message) only from Python 3.14 on and on tomli's
+    # backport (used here for Python <3.11); stdlib tomllib on 3.11-3.13 has
+    # no .msg, so parse-errors' decode_error_message() falls back to
+    # str(exc), which already has the position folded in.
+    f = tmp_path / "config.toml"
+    f.write_bytes(b'host = "x"\nport ! 1\n')
+    with pytest.raises(ParseError) as exc_info:
+        load(f)
+    err = exc_info.value
+    assert err.line == 2
+    assert err.column == 6
+    assert str(err).startswith(f"{f}:2:6: Expected '=' after a key in a key/value pair")
+
+
+def test_load_toml_syntax_error_at_end_of_document(tmp_path):
+    # tomllib phrases an error at EOF as "(at end of document)" instead of
+    # "(at line N, column N)", with no digits left for the regex fallback to
+    # find. .lineno/.colno sidestep that, but only exist on tomli (used here
+    # for Python <3.11) and on tomllib from Python 3.14 on; stdlib tomllib
+    # on 3.11-3.13 has neither, so this failure is genuinely unlocatable
+    # there -- parse-errors' ParseContext has no better answer available.
+    try:
+        _parsing.tomllib.loads("x")
+    except _parsing.tomllib.TOMLDecodeError as probe:
+        has_position = hasattr(probe, "lineno")
+
     f = tmp_path / "config.toml"
     f.write_bytes(b"port = ")
     with pytest.raises(ParseError) as exc_info:
         load(f)
     err = exc_info.value
-    assert err.line == 0
-    assert str(err) == f"{f}: Invalid value (at end of document)"
+    assert err.line == 1
+    if has_position:
+        assert err.column == 8
+        assert str(err) == f"{f}:1:8: Invalid value"
+    else:
+        assert err.column == 0
+        assert str(err) == f"{f}: TOMLDecodeError('Invalid value (at end of document)')"
+
+
+def test_load_toml_syntax_error_falls_back_to_regex_without_lineno_attrs(tmp_path, monkeypatch):
+    # Python 3.11-3.13's stdlib tomllib doesn't set .lineno/.colno/.msg at
+    # all (added in 3.14; tomli's backport, used on 3.10, already has them),
+    # so this path has to keep working from the message text alone. A plain
+    # stand-in exception reproduces that shape on any Python version --
+    # locate_decode_error() only duck-types the attributes, so it doesn't
+    # need a real TOMLDecodeError, and this sidesteps that class's own
+    # deprecated single-string-arg constructor form, which warns.
+    class FakeTOMLDecodeError(Exception):
+        pass
+
+    def fake_loads(data):
+        raise FakeTOMLDecodeError("Expected '=' after a key in a key/value pair (at line 2, column 6)")
+
+    monkeypatch.setattr(_parsing.tomllib, "loads", fake_loads)
+    f = tmp_path / "config.toml"
+    f.write_bytes(b'host = "x"\nport ! 1\n')
+    with pytest.raises(ParseError) as exc_info:
+        load(f)
+    err = exc_info.value
+    assert err.line == 2
+    assert err.column == 6
 
 
 def test_load_unknown_format(tmp_path):

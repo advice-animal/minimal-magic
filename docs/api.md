@@ -34,11 +34,11 @@ except ParseError as exc:
     print(exc.column)    # 7
 ```
 
-`ParseError` is re-exported from the `parse-errors` package (pinned to `>= 0.6.0, < 1.0`) so
-catching it doesn't need a second import. `ParseContext` and the source-map types
-(`Location`, `Entry`, `TSourceMap`) are `parse-errors`' own manual location-extraction
-building blocks — nothing here calls them, so import them from `parse_errors` directly
-if you need them.
+`ParseError` is re-exported from the `parse-errors` package (pinned to `>= 0.7.0, < 1.0`) so
+catching it doesn't need a second import. `_parsing.py` uses `parse_errors.ParseContext`
+to locate a raw JSON/YAML/TOML syntax error; the source-map types (`Location`, `Entry`,
+`TSourceMap`) are `parse-errors`' own manual location-extraction building blocks that
+nothing here calls, so import them from `parse_errors` directly if you need them.
 
 ## CLI
 
