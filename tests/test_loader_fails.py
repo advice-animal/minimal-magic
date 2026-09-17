@@ -73,13 +73,16 @@ def test_load_toml_syntax_error_at_end_of_document(tmp_path):
 def test_load_toml_syntax_error_falls_back_to_regex_without_lineno_attrs(tmp_path, monkeypatch):
     # Python 3.11-3.13's stdlib tomllib doesn't set .lineno/.colno/.msg at
     # all (added in 3.14; tomli's backport, used on 3.10, already has them),
-    # so this path has to keep working from the message text alone.
-    # TOMLDecodeError(msg) with no doc/pos reproduces that shape on any
-    # Python version, via its documented deprecated single-arg form.
-    tomllib = _parsing.tomllib
+    # so this path has to keep working from the message text alone. A plain
+    # stand-in exception reproduces that shape on any Python version --
+    # locate_decode_error() only duck-types the attributes, so it doesn't
+    # need a real TOMLDecodeError, and this sidesteps that class's own
+    # deprecated single-string-arg constructor form, which warns.
+    class FakeTOMLDecodeError(Exception):
+        pass
 
     def fake_loads(data):
-        raise tomllib.TOMLDecodeError("Expected '=' after a key in a key/value pair (at line 2, column 6)")
+        raise FakeTOMLDecodeError("Expected '=' after a key in a key/value pair (at line 2, column 6)")
 
     monkeypatch.setattr(_parsing.tomllib, "loads", fake_loads)
     f = tmp_path / "config.toml"
