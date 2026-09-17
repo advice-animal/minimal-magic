@@ -10,7 +10,17 @@ on:
   pull_request:
 
 jobs:
+  lockcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - name: Check uv.lock is up to date
+        run: uv lock --check
+
   test:
+    needs: lockcheck
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
