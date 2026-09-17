@@ -170,8 +170,8 @@ def test_list_element_pointer_resolves_through_its_parent(tmp_path):
 
 def test_source_maps_are_built_only_when_locate_pointer_unavailable(tmp_path, monkeypatch):
     """Falls back to build_source_map() + closest_entry() -- lazily, only for
-    the candidate actually blamed, and only when something fails -- when the
-    installed parse-errors has no locate_pointer()."""
+    the candidate actually blamed, and only when something fails -- if
+    locate_pointer() is unavailable."""
     from minimal_magic import _errors, api
 
     monkeypatch.delattr(_errors._source_maps, "locate_pointer", raising=False)
@@ -202,10 +202,7 @@ def test_source_maps_are_never_built_when_locate_pointer_available(tmp_path, mon
     """parse-errors' locate_pointer() answers the one pointer that failed
     directly, so build_source_map() never maps a whole document -- not even
     the blamed candidate's, and not even on failure."""
-    from minimal_magic import _errors, api
-
-    if not hasattr(_errors._source_maps, "locate_pointer"):
-        pytest.skip("installed parse-errors has no locate_pointer()")
+    from minimal_magic import api
 
     calls = []
     real = api.build_source_map

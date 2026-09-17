@@ -7,7 +7,7 @@ minimal-magic does two things:
 
 It deliberately does not do a third thing. Error locations — the `filename:line:column` on every `ParseError` you see below — come from the [`parse-errors`](https://pypi.org/project/parse-errors/) package this is built on. If located exceptions are all you want, without typed conversion or file merging, use that package directly; minimal-magic consumes it rather than reimplementing it.
 
-The cost of converting in Python is speed: roughly 8x slower than msgspec on config-shaped, deeply nested structures, 40x slower on a flat bulk array. The overhead depends on the data shape and the alternate library; see [shapes and alternate libraries](docs/comparison.md) for the benchmark notes. For a config file read once at startup, that is a few milliseconds you will not notice.
+The cost of converting in Python is speed: tens of times slower than msgspec on flat bulk arrays, with lower overhead on config-shaped nested data. The overhead depends on the data shape and the alternate library; see [shapes and alternate libraries](docs/comparison.md) for the benchmark notes. For a config file read once at startup, that is a few milliseconds you will not notice.
 
 ## Install
 
