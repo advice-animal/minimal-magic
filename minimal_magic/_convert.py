@@ -109,15 +109,20 @@ def _build(tp: typing.Any) -> _Conv:
     args = typing.get_args(tp)
 
     # Annotated[T, ...] — strip metadata and recurse.
-    # In practice get_type_hints() strips Annotated, so this is a safety net
-    # for callers who pass Annotated types directly.
-    if origin is typing.Annotated:  # pragma: no cover
+    # `_dataclass_meta` calls get_type_hints() without include_extras, which
+    # strips Annotated before this is ever reached, but `_typeddict_meta`
+    # passes include_extras=True to preserve Required/NotRequired, and that
+    # keeps Annotated too — so a TypedDict field really does arrive here.
+    if origin is typing.Annotated:
         return _compile(args[0])
 
     # Required[T] / NotRequired[T] — unwrap typing metadata.
+    # `origin is not None` matters on 3.10, where neither attribute exists:
+    # both sides of the `in` would be `None`, matching the `origin is None`
+    # of every plain type (str, a bare dataclass, ...) rather than just these.
     required = getattr(typing, "Required", None)
     not_required = getattr(typing, "NotRequired", None)
-    if origin in (required, not_required):  # pragma: no cover
+    if origin is not None and origin in (required, not_required):
         return _compile(args[0])
 
     # Any — pass through unchanged

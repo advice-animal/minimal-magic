@@ -1,6 +1,8 @@
 import datetime as dt
 import decimal
 import json
+import sys
+import typing
 from pathlib import Path
 
 import pytest
@@ -107,6 +109,34 @@ def test_load_typed_dict_missing_required_key(tmp_path):
 
     with pytest.raises(ParseError, match="Missing required field `port`"):
         load(f, type=ServiceConfig)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="Required/NotRequired need Python 3.11+")
+def test_load_typed_dict_required_and_not_required_unwrap(tmp_path):
+    class TdMixedRequired(typing.TypedDict, total=False):
+        host: typing.Required[str]
+        port: typing.NotRequired[int]
+
+    f = tmp_path / "config.json"
+    f.write_text('{"host": "localhost"}')
+    assert load(f, type=TdMixedRequired) == {"host": "localhost"}
+
+    f.write_text("{}")
+    with pytest.raises(ParseError, match="Missing required field `host`"):
+        load(f, type=TdMixedRequired)
+
+
+def test_load_typed_dict_annotated_field_unwraps(tmp_path):
+    class TdAnnotated(typing.TypedDict):
+        port: typing.Annotated[int, "metadata get_type_hints keeps for TypedDicts"]
+
+    f = tmp_path / "config.json"
+    f.write_text('{"port": 8080}')
+    assert load(f, type=TdAnnotated) == {"port": 8080}
+
+    f.write_text('{"port": "nope"}')
+    with pytest.raises(ParseError, match="Expected `int`, got `str`"):
+        load(f, type=TdAnnotated)
 
 
 # The rich scalars each have a wrong-type branch and an unparseable-value
