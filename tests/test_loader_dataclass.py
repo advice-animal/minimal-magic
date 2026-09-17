@@ -565,8 +565,9 @@ def test_tuple_fixed_wrong_length(tmp_path):
 def test_tuple_not_a_sequence(tmp_path):
     f = tmp_path / "config.json"
     f.write_bytes(b'{"fixed": "nope", "variadic": []}')
-    with pytest.raises(ParseError, match=f"{f}:1:11: Expected `tuple`, got `str`"):
+    with pytest.raises(ParseError) as exc_info:
         load(f, type=TupleHolder)
+    assert str(exc_info.value) == f"{f}:1:11: Expected `tuple`, got `str`"
 
 
 def test_tuple_empty(tmp_path):

@@ -5,7 +5,7 @@ msgspec decodes millions of records a second because its converter is a C extens
 | | minimal-magic | msgspec | pydantic |
 |---|---|---|---|
 | Target types | plain `dataclass`, `TypedDict` | `msgspec.Struct` | `BaseModel` |
-| 20k-item convert, converts/sec | ~146 | ~5,500 | ~2,700 |
+| 20k-item convert, converts/sec | ~150 | ~5,000 | ~2,700 |
 | Library size | ~1k lines pure Python | 2,400 lines Python + C extension | Python + Rust extension (pydantic-core) |
 | Syntax errors | filename, line, column | n/a | n/a |
 | Type errors | filename, line, column | field path only | field path only |
@@ -19,7 +19,9 @@ All three convert the same already-parsed Python dict — `{"items": [0, 1, ...,
 
 The ratio moves with the data's shape, not just the interpreter: a flat homogeneous array is minimal-magic's worst case — it's the same compiled converter called 20,000 times with no branching, and msgspec's/pydantic's native code has nothing else to do either. A deeply nested, heterogeneous config (many small `dataclass`/`Struct`/`BaseModel` types, `Optional` fields, `dict[str, str]` maps) narrows the gap to roughly 8x vs. msgspec and 1.5x vs. pydantic, because msgspec's and pydantic's per-object construction cost stops being negligible too.
 
-None of the above hits a source map: it's the cost of a value that converts cleanly. A value that doesn't pays for one. `test_benchmark_large_list_load_validation_failure` / `test_benchmark_nested_envoy_config_load_validation_failure` measure exactly that against their clean-load counterparts: one wrong value turns a 9ms flat load into ~44ms, and a 23ms nested load into ~114ms. When parse-errors provides `locate_pointer()`, minimal-magic asks it for the one pointer that failed instead of mapping the whole document. Older parse-errors releases fall back to `build_source_map()` + `closest_entry()` — mapping every value in the document to find the one that mattered — and pay more for the same failures. Either way `_FixedSource` stays lazy: nothing built on the common path, and the least parse-errors can manage the moment something actually fails.
+None of the above hits a source map: it's the cost of a value that converts cleanly. A value that doesn't pays for one. `test_benchmark_large_list_load_validation_failure` / `test_benchmark_nested_envoy_config_load_validation_failure` measure exactly that against their clean-load counterparts. minimal-magic asks parse-errors' `locate_pointer()` for the one pointer that failed instead of mapping the whole document. `_FixedSource` stays lazy: nothing built on the common path, and only the failed pointer is located when something actually fails.
+
+That failure path is doing extra work on purpose: it turns "some nested value had the wrong type" into a filename, line, and column a person can fix. On current local runs with parse-errors 0.6.0, that richer error costs on the order of tens of milliseconds, not a whole-document source-map walk. Run the benchmark tests before quoting exact timings; they depend on the parser, Python, CPU, and where the bad value sits.
 
 See `tests/test_benchmark_loader.py` (flat) and `tests/test_benchmark_nested_loader.py` (deeply nested, Envoy-config-shaped) for the actual benchmarks this repo tracks, success and failure paths both.
 
