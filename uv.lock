@@ -483,7 +483,7 @@ requires-dist = [
     { name = "hypothesis", marker = "extra == 'test'" },
     { name = "msgspec", marker = "extra == 'bench'" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "==1.19.1" },
-    { name = "parse-errors", specifier = ">=0.6.0,<1.0" },
+    { name = "parse-errors", specifier = ">=0.7.0,<1.0" },
     { name = "pydantic", marker = "extra == 'bench'" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8" },
     { name = "pytest-benchmark", marker = "extra == 'test'" },
@@ -617,7 +617,7 @@ wheels = [
 
 [[package]]
 name = "parse-errors"
-version = "0.6.0"
+version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyyaml" },
@@ -625,9 +625,9 @@ dependencies = [
     { name = "tree-sitter-json" },
     { name = "tree-sitter-toml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/20/ea/5d57d65df0589d4b8f3ae28026275f513cf5855a9d02f246fe380da0c4f8/parse_errors-0.6.0.tar.gz", hash = "sha256:3d47fe9a25b2af78a28c1a76efef8fc050f44f3287c0244d9c745c55e583777b", size = 23521, upload-time = "2026-09-16T19:30:43.171Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/88/41/64736ec42022812a6f030c4a50bdbb435eaa51628e654f68a0f1caec4353/parse_errors-0.7.0.tar.gz", hash = "sha256:3f663dfce7d1e0e2e5c58d95c0e70aee447ef03b7b32c19f85345517a406aa67", size = 26175, upload-time = "2026-09-17T19:42:35.747Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/19/f2/04d637c5172459090567ad50703e3ff32a21950f6ebab0da392acc7a048c/parse_errors-0.6.0-py3-none-any.whl", hash = "sha256:9815cadff6106841f92fd8fc13ef4fb963da9c18a4fe7245c107ab620bfd7328", size = 19402, upload-time = "2026-09-16T19:30:41.89Z" },
+    { url = "https://files.pythonhosted.org/packages/4c/39/ca12a91e6f2341dc53850a8e33097e4271687ad6e9101640e78adc984c72/parse_errors-0.7.0-py3-none-any.whl", hash = "sha256:0d984c96cbe893ef0304318511d48e2c4c914d7f5113fc8bf02b275b01428dfc", size = 20348, upload-time = "2026-09-17T19:42:34.497Z" },
 ]
 
 [[package]]
