@@ -4,7 +4,7 @@ import typing
 
 import pytest
 
-from minimal_magic import convert, load, load_candidate, ParseError
+from minimal_magic import _parsing, convert, load, load_candidate, ParseError
 
 from ._types import DcConfig
 
@@ -16,9 +16,50 @@ def test_load_unknown_extension(tmp_path):
         load(f)
 
 
+# One syntax-error test per format, each failing on a line after the first,
+# so a location bug (off-by-one, or reporting line 1 unconditionally) can't
+# hide behind a single-line fixture.
+
+
+def test_load_json_syntax_error_location(tmp_path):
+    f = tmp_path / "config.json"
+    f.write_bytes(b'{\n  "host": "x"\n  "port": 1\n}\n')
+    with pytest.raises(ParseError) as exc_info:
+        load(f)
+    err = exc_info.value
+    assert err.line == 3
+    assert err.column == 3
+    assert str(err) == f"{f}:3:3: Expecting ',' delimiter"
+
+
+def test_load_yaml_syntax_error_location(tmp_path):
+    f = tmp_path / "config.yaml"
+    f.write_bytes(b"host: x\n  port: 1\n")
+    with pytest.raises(ParseError) as exc_info:
+        load(f)
+    err = exc_info.value
+    assert err.line == 2
+    assert err.column == 7
+    assert "mapping values are not allowed" in str(err)
+    assert str(err).startswith(f"{f}:2:7: ")
+
+
+def test_load_toml_syntax_error_location(tmp_path):
+    f = tmp_path / "config.toml"
+    f.write_bytes(b'host = "x"\nport ! 1\n')
+    with pytest.raises(ParseError) as exc_info:
+        load(f)
+    err = exc_info.value
+    assert err.line == 2
+    assert err.column == 6
+    assert str(err) == f"{f}:2:6: Expected '=' after a key in a key/value pair"
+
+
 def test_load_toml_syntax_error_at_end_of_document(tmp_path):
     # tomllib phrases an error at EOF as "(at end of document)" instead of
-    # "(at line N, column N)", but `.lineno`/`.colno` are set either way.
+    # "(at line N, column N)", but `.lineno`/`.colno` are set either way --
+    # on the Python versions where tomllib/tomli sets them at all; see
+    # test_load_toml_syntax_error_falls_back_to_regex_without_lineno_attrs.
     f = tmp_path / "config.toml"
     f.write_bytes(b"port = ")
     with pytest.raises(ParseError) as exc_info:
@@ -27,6 +68,27 @@ def test_load_toml_syntax_error_at_end_of_document(tmp_path):
     assert err.line == 1
     assert err.column == 8
     assert str(err) == f"{f}:1:8: Invalid value"
+
+
+def test_load_toml_syntax_error_falls_back_to_regex_without_lineno_attrs(tmp_path, monkeypatch):
+    # Python 3.11-3.13's stdlib tomllib doesn't set .lineno/.colno/.msg at
+    # all (added in 3.14; tomli's backport, used on 3.10, already has them),
+    # so this path has to keep working from the message text alone.
+    # TOMLDecodeError(msg) with no doc/pos reproduces that shape on any
+    # Python version, via its documented deprecated single-arg form.
+    tomllib = _parsing.tomllib
+
+    def fake_loads(data):
+        raise tomllib.TOMLDecodeError("Expected '=' after a key in a key/value pair (at line 2, column 6)")
+
+    monkeypatch.setattr(_parsing.tomllib, "loads", fake_loads)
+    f = tmp_path / "config.toml"
+    f.write_bytes(b'host = "x"\nport ! 1\n')
+    with pytest.raises(ParseError) as exc_info:
+        load(f)
+    err = exc_info.value
+    assert err.line == 2
+    assert err.column == 6
 
 
 def test_load_unknown_format(tmp_path):
