@@ -16,14 +16,17 @@ def test_load_unknown_extension(tmp_path):
         load(f)
 
 
-def test_load_toml_syntax_error_no_location(tmp_path):
+def test_load_toml_syntax_error_at_end_of_document(tmp_path):
+    # tomllib phrases an error at EOF as "(at end of document)" instead of
+    # "(at line N, column N)", but `.lineno`/`.colno` are set either way.
     f = tmp_path / "config.toml"
     f.write_bytes(b"port = ")
     with pytest.raises(ParseError) as exc_info:
         load(f)
     err = exc_info.value
-    assert err.line == 0
-    assert str(err) == f"{f}: Invalid value (at end of document)"
+    assert err.line == 1
+    assert err.column == 8
+    assert str(err) == f"{f}:1:8: Invalid value"
 
 
 def test_load_unknown_format(tmp_path):

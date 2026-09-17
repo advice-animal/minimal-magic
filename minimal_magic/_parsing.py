@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 import typing
 from pathlib import Path
 
@@ -11,8 +10,6 @@ except ImportError:  # pragma: no cover
     import tomli as tomllib  # type: ignore[no-redef]
 
 from parse_errors import ParseError
-
-_TOML_LOC = re.compile(r"\(at line (\d+), column (\d+)\)")
 
 
 def _parse_syntax(data: bytes, fmt: str, path: Path) -> typing.Any:
@@ -67,20 +64,15 @@ def _parse_syntax(data: bytes, fmt: str, path: Path) -> typing.Any:
         try:
             return tomllib.loads(data.decode("utf-8"))
         except tomllib.TOMLDecodeError as exc:
-            m = _TOML_LOC.search(str(exc))
-            if m:
-                line, col = int(m.group(1)), int(m.group(2))
-                raise ParseError(
-                    f"{path}:{line}:{col}: {exc}",
-                    filename=path,
-                    line=line,
-                    column=col,
-                ) from exc
+            # `str(exc)` says "(at end of document)" instead of "(at line N,
+            # column N)" once `pos` reaches the end of input, but `.lineno`/
+            # `.colno` are always set -- tomllib computes them from `.pos`
+            # before choosing how to word the message.
             raise ParseError(
-                f"{path}: {exc}",
+                f"{path}:{exc.lineno}:{exc.colno}: {exc.msg}",
                 filename=path,
-                line=0,
-                column=0,
+                line=exc.lineno,
+                column=exc.colno,
             ) from exc
     else:
         raise ValueError(f"Unknown format: {fmt!r}")
